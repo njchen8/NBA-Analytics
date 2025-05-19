@@ -6,6 +6,7 @@ import {
 import { motion } from 'framer-motion';
 import { fetchPlayerData } from './utils/fetchData';
 import ChartPage from './pages/ChartPage';
+import GamePage from './pages/GamePage';
 
 function Dashboard() {
   const [allRows, setAllRows]     = useState([]);
@@ -76,6 +77,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/chart/:name" element={<ChartPage />} />
+        <Route path="/game/:gameId" element={<GamePage />} />
       </Routes>
     </BrowserRouter>
   );
