@@ -16,3 +16,21 @@ export const fetchPlayerData = () =>
       },
     });
   });
+
+// Utility to fetch player bio info from nba_players_info.csv
+export const fetchPlayerBio = () =>
+  new Promise((resolve) => {
+    Papa.parse('/nba_players_info.csv', {
+      header: true,
+      download: true,
+      dynamicTyping: true,
+      complete: ({ data }) => {
+        // Map by player name for quick lookup
+        const bioMap = new Map();
+        data.forEach(row => {
+          if (row.PLAYER_NAME) bioMap.set(row.PLAYER_NAME.trim().toUpperCase(), row);
+        });
+        resolve(bioMap);
+      },
+    });
+  });

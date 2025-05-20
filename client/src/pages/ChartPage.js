@@ -1,9 +1,10 @@
 // client/src/pages/ChartPage.js
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
+import { fetchPlayerData, fetchPlayerBio } from '../utils/fetchData';
 
 function GameInfoModal({ open, onClose, game }) {
   if (!open || !game) return null;
@@ -154,6 +155,37 @@ export default function ChartPage() {
   const [showAST, setShowAST] = useState(true);
   const [showREB, setShowREB] = useState(true);
   const [showPTS, setShowPTS] = useState(true);
+  const [playerBio, setPlayerBio] = useState(null);
+  const [teamColor, setTeamColor] = useState('#174734');
+
+  // Helper: fallback team color map (NBA.com official)
+  const TEAM_COLORS = useMemo(() => ({
+    'ATL': '#E03A3E', 'BOS': '#007A33', 'BKN': '#000000', 'CHA': '#1D1160', 'CHI': '#CE1141',
+    'CLE': '#6F263D', 'DAL': '#00538C', 'DEN': '#0E2240', 'DET': '#C8102E', 'GSW': '#1D428A',
+    'HOU': '#CE1141', 'IND': '#002D62', 'LAC': '#C8102E', 'LAL': '#552583', 'MEM': '#5D76A9',
+    'MIA': '#98002E', 'MIL': '#174734', 'MIN': '#0C2340', 'NOP': '#0C2340', 'NYK': '#006BB6',
+    'OKC': '#007AC1', 'ORL': '#0077C0', 'PHI': '#006BB6', 'PHX': '#1D1160', 'POR': '#E03A3E',
+    'SAC': '#5A2D81', 'SAS': '#C4CED4', 'TOR': '#CE1141', 'UTA': '#002B5C', 'WAS': '#002B5C',
+  }), []);
+
+  // Always get team color from most recent game log's TEAM_ABBREVIATION
+  useEffect(() => {
+    let isMounted = true;
+    fetchPlayerBio().then(bioMap => {
+      const bio = bioMap.get(name.trim().toUpperCase());
+      // Find most recent game (first in rows)
+      let teamAbbr = rows && rows.length > 0 ? rows[0].TEAM_ABBREVIATION : undefined;
+      let color = '#174734';
+      if (teamAbbr && TEAM_COLORS[teamAbbr]) {
+        color = TEAM_COLORS[teamAbbr];
+      }
+      if (isMounted) {
+        setPlayerBio(bio);
+        setTeamColor(color);
+      }
+    });
+    return () => { isMounted = false; };
+  }, [name, rows, TEAM_COLORS]);
 
   // slice newest→oldest then reverse for left-to-right chronological
   const data = useMemo(() => rows.slice(0, count).reverse().map((row, idx) => ({ ...row, GAME_IDX: idx + 1 })), [rows, count]);
@@ -174,15 +206,59 @@ export default function ChartPage() {
   return (
     <div style={{ minHeight: '100vh', background: '#f6f8fa', padding: 0 }}>
       {/* Top Bar */}
-      <div style={{ width: '100%', background: '#22223b', color: '#fff', padding: '18px 0 14px 0', marginBottom: 0, boxShadow: '0 2px 8px #22223b22', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
-        <div style={{ fontWeight: 700, fontSize: 22, marginLeft: 36, letterSpacing: 1 }}>{name} Stats</div>
-        <button onClick={() => navigate('/')} style={{ marginRight: 36, background: '#4dabf7', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 18px', fontWeight: 600, fontSize: 16, cursor: 'pointer', boxShadow: '0 2px 8px #4dabf733', transition: 'all 0.15s' }}>Back to Main</button>
+      <div style={{ width: '100%', background: teamColor, color: '#fff', padding: 0, marginBottom: 0, boxShadow: '0 2px 8px #22223b22', position: 'sticky', top: 0, zIndex: 10 }}>
+        {/* Player Banner Section */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: teamColor, minHeight: 220, position: 'relative', padding: 0 }}>
+          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            <div style={{ fontSize: 18, fontWeight: 600, color: '#e3e6ea', marginBottom: 2, letterSpacing: 1 }}>
+              {playerBio?.JERSEY ? `#${playerBio.JERSEY}` : ''}
+            </div>
+            <div style={{ fontSize: 38, fontWeight: 800, letterSpacing: 1, color: '#fff', lineHeight: 1, textAlign: 'center' }}>{name.toUpperCase()}</div>
+            <div style={{ fontSize: 16, fontWeight: 500, color: '#e3e6ea', marginTop: 2, marginBottom: 0, textAlign: 'center' }}>
+              {playerBio?.TEAM_NAME ? `${playerBio.TEAM_NAME}` : ''}{playerBio?.POSITION ? ` | ${playerBio.POSITION}` : ''}
+            </div>
+            <div style={{ display: 'flex', gap: 36, marginTop: 18, justifyContent: 'center', alignItems: 'flex-end', position: 'relative', width: 360 }}>
+              <div style={{ position: 'absolute', left: '50%', top: -28, transform: 'translateX(-50%)', fontSize: 13, color: '#e3e6ea', fontWeight: 700, letterSpacing: 1, marginBottom: 2, textAlign: 'center', width: 80 }}>
+                All Time
+              </div>
+              {['PPG', 'RPG', 'APG'].map((label, i) => (
+                <div key={label} style={{ textAlign: 'center', flex: 1 }}>
+                  <div style={{ fontSize: 15, color: '#e3e6ea', fontWeight: 500 }}>{label}</div>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: '#fff' }}>
+                    {label === 'PPG' && playerBio?.HEADLINE_PTS ? Number(playerBio.HEADLINE_PTS).toFixed(1) :
+                     label === 'RPG' && playerBio?.HEADLINE_REB ? Number(playerBio.HEADLINE_REB).toFixed(1) :
+                     label === 'APG' && playerBio?.HEADLINE_AST ? Number(playerBio.HEADLINE_AST).toFixed(1) :
+                     '-'}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        {/* Player Info Grid */}
+        <div style={{ display: 'flex', justifyContent: 'center', background: teamColor, borderTop: '1px solid #e3e6ea', borderBottom: '1px solid #e3e6ea', padding: 0 }}>
+          <div style={{ display: 'flex', gap: 48, padding: '18px 0', color: '#fff', fontSize: 16, fontWeight: 500 }}>
+            {[
+              { label: 'HEIGHT', value: playerBio?.HEIGHT || '-' },
+              { label: 'WEIGHT', value: playerBio?.WEIGHT ? `${playerBio.WEIGHT} lb` : '-' },
+              { label: 'COUNTRY', value: playerBio?.COUNTRY || '-' },
+              { label: 'COLLEGE', value: playerBio?.SCHOOL || '-' },
+              { label: 'AGE', value: playerBio?.BIRTHDATE ? `${Math.floor((new Date() - new Date(playerBio.BIRTHDATE)) / (365.25*24*60*60*1000))}` : '-' },
+              { label: 'DRAFT', value: playerBio?.DRAFT_YEAR && playerBio?.DRAFT_ROUND && playerBio?.DRAFT_NUMBER ? `${playerBio.DRAFT_YEAR} R${playerBio.DRAFT_ROUND} Pick ${playerBio.DRAFT_NUMBER}` : '-' },
+            ].map(({ label, value }) => (
+              <div key={label} style={{ minWidth: 110, textAlign: 'center' }}>
+                <div style={{ fontSize: 13, color: '#e3e6ea', fontWeight: 400 }}>{label}</div>
+                <div style={{ fontWeight: 700 }}>{value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
       {/* Main Content Layout */}
       <div style={{ display: 'flex', maxWidth: 1200, margin: '0 auto', padding: '32px 0 32px 0', gap: 32 }}>
         {/* Chart Area */}
         <div style={{ flex: 2, background: '#fff', borderRadius: 16, boxShadow: '0 4px 24px rgba(0,0,0,0.08)', padding: 32, fontFamily: 'Inter, sans-serif', minWidth: 0 }}>
-          <h2 style={{ fontWeight: 700, fontSize: 28, marginBottom: 8 }}>{name} <span style={{fontWeight:400, color:'#888'}}>– last {count} game{count > 1 ? 's' : ''}</span></h2>
+          <h2 style={{ fontWeight: 700, fontSize: 28, marginBottom: 8, textAlign: 'center' }}>{name}</h2>
           <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', gap: 16 }}>
             <label style={{ fontWeight: 500, fontSize: 16 }}>
               Games:
@@ -338,6 +414,74 @@ export default function ChartPage() {
           <div style={{ fontSize: 15, color: '#222', marginBottom: 8 }}>
             <b>Games Played:</b> {data.length}
           </div>
+        </div>
+      </div>
+      {/* Stats Table */}
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 32px 32px 32px' }}>
+        <h3 style={{ fontWeight: 700, fontSize: 24, marginBottom: 16, color: '#22223b' }}>Game Log Table</h3>
+        <div style={{ overflowX: 'auto', borderRadius: 14, boxShadow: '0 4px 24px #0002', background: 'linear-gradient(90deg, #f8fafc 60%, #f1f3f6 100%)', border: 'none', marginTop: 8 }}>
+          <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: 16, minWidth: 1100, borderRadius: 14, overflow: 'hidden', background: 'transparent' }}>
+            <thead>
+              <tr style={{ background: 'rgba(245,247,250,0.98)', color: '#1a1a1a', fontWeight: 700, fontSize: 16, letterSpacing: 0.5, borderBottom: '2px solid #e3e6ea' }}>
+                <th style={{ padding: '14px 8px', textAlign: 'center', borderRight: '1px solid #e3e6ea', background: 'rgba(245,247,250,0.98)' }}>Date</th>
+                <th style={{ padding: '14px 8px', textAlign: 'center', borderRight: '1px solid #e3e6ea', background: 'rgba(245,247,250,0.98)' }}>Matchup</th>
+                <th style={{ padding: '14px 8px', textAlign: 'center', borderRight: '1px solid #e3e6ea', background: 'rgba(245,247,250,0.98)' }}>Home/Away</th>
+                <th style={{ padding: '14px 8px', textAlign: 'center', borderRight: '1px solid #e3e6ea', background: 'rgba(245,247,250,0.98)' }}>W/L</th>
+                <th style={{ padding: '14px 8px', textAlign: 'center', borderRight: '1px solid #e3e6ea', background: 'rgba(245,247,250,0.98)' }}>PTS</th>
+                <th style={{ padding: '14px 8px', textAlign: 'center', borderRight: '1px solid #e3e6ea', background: 'rgba(245,247,250,0.98)' }}>REB</th>
+                <th style={{ padding: '14px 8px', textAlign: 'center', borderRight: '1px solid #e3e6ea', background: 'rgba(245,247,250,0.98)' }}>AST</th>
+                <th style={{ padding: '14px 8px', textAlign: 'center', borderRight: '1px solid #e3e6ea', background: 'rgba(245,247,250,0.98)' }}>PRA</th>
+                <th style={{ padding: '14px 8px', textAlign: 'center', borderRight: '1px solid #e3e6ea', background: 'rgba(245,247,250,0.98)' }}>FG%</th>
+                <th style={{ padding: '14px 8px', textAlign: 'center', borderRight: '1px solid #e3e6ea', background: 'rgba(245,247,250,0.98)' }}>FT%</th>
+                <th style={{ padding: '14px 8px', textAlign: 'center', borderRight: '1px solid #e3e6ea', background: 'rgba(245,247,250,0.98)' }}>MIN</th>
+                <th style={{ padding: '14px 8px', textAlign: 'center', borderRight: '1px solid #e3e6ea', background: 'rgba(245,247,250,0.98)' }}>FGA</th>
+                <th style={{ padding: '14px 8px', textAlign: 'center', borderRight: '1px solid #e3e6ea', background: 'rgba(245,247,250,0.98)' }}>FGM</th>
+                <th style={{ padding: '14px 8px', textAlign: 'center', borderRight: '1px solid #e3e6ea', background: 'rgba(245,247,250,0.98)' }}>FTA</th>
+                <th style={{ padding: '14px 8px', textAlign: 'center', borderRight: '1px solid #e3e6ea', background: 'rgba(245,247,250,0.98)' }}>FTM</th>
+                <th style={{ padding: '14px 8px', textAlign: 'center', borderRight: '1px solid #e3e6ea', background: 'rgba(245,247,250,0.98)' }}>STL</th>
+                <th style={{ padding: '14px 8px', textAlign: 'center', borderRight: '1px solid #e3e6ea', background: 'rgba(245,247,250,0.98)' }}>BLK</th>
+                <th style={{ padding: '14px 8px', textAlign: 'center', borderRight: '1px solid #e3e6ea', background: 'rgba(245,247,250,0.98)' }}>PF</th>
+                <th style={{ padding: '14px 8px', textAlign: 'center', background: 'rgba(245,247,250,0.98)' }}>+/-</th>
+              </tr>
+            </thead>
+            <tbody>
+              {/* Data rows */}
+              {data.map((g, idx) => {
+                const pra = (Number(g.PTS) || 0) + (Number(g.REB) || 0) + (Number(g.AST) || 0);
+                const fgPct = g.FGA ? ((g.FGM / g.FGA) * 100).toFixed(1) : '-';
+                const ftPct = g.FTA ? ((g.FTM / g.FTA) * 100).toFixed(1) : '-';
+                // Home/Away: if MATCHUP includes '@' it's away, else home
+                const homeAway = g.MATCHUP && g.MATCHUP.includes('@') ? 'Away' : 'Home';
+                return (
+                  <tr key={g.GAME_ID || idx} style={{ background: idx % 2 === 0 ? 'rgba(255,255,255,0.98)' : '#f6f8fa', cursor: 'pointer', transition: 'background 0.2s' }}
+                    onClick={() => g.GAME_ID && navigate(`/game/${g.GAME_ID}`, { state: { game: g } })}
+                    onMouseOver={e => e.currentTarget.style.background = '#e3e6ea'}
+                    onMouseOut={e => e.currentTarget.style.background = idx % 2 === 0 ? 'rgba(255,255,255,0.98)' : '#f6f8fa'}
+                  >
+                    <td style={{ padding: 7, textAlign: 'center', borderRight: '1px solid #e3e6ea' }}>{formatDate(g.GAME_DATE)}</td>
+                    <td style={{ padding: 7, textAlign: 'center', borderRight: '1px solid #e3e6ea' }}>{g.MATCHUP}</td>
+                    <td style={{ padding: 7, textAlign: 'center', borderRight: '1px solid #e3e6ea' }}>{homeAway}</td>
+                    <td style={{ padding: 7, textAlign: 'center', borderRight: '1px solid #e3e6ea' }}>{g.WL}</td>
+                    <td style={{ padding: 7, textAlign: 'center', borderRight: '1px solid #e3e6ea' }}>{g.PTS}</td>
+                    <td style={{ padding: 7, textAlign: 'center', borderRight: '1px solid #e3e6ea' }}>{g.REB}</td>
+                    <td style={{ padding: 7, textAlign: 'center', borderRight: '1px solid #e3e6ea' }}>{g.AST}</td>
+                    <td style={{ padding: 7, textAlign: 'center', borderRight: '1px solid #e3e6ea' }}>{pra}</td>
+                    <td style={{ padding: 7, textAlign: 'center', borderRight: '1px solid #e3e6ea' }}>{fgPct}</td>
+                    <td style={{ padding: 7, textAlign: 'center', borderRight: '1px solid #e3e6ea' }}>{ftPct}</td>
+                    <td style={{ padding: 7, textAlign: 'center', borderRight: '1px solid #e3e6ea' }}>{g.MIN ? Math.round(Number(g.MIN)) : '-'}</td>
+                    <td style={{ padding: 7, textAlign: 'center', borderRight: '1px solid #e3e6ea' }}>{g.FGA}</td>
+                    <td style={{ padding: 7, textAlign: 'center', borderRight: '1px solid #e3e6ea' }}>{g.FGM}</td>
+                    <td style={{ padding: 7, textAlign: 'center', borderRight: '1px solid #e3e6ea' }}>{g.FTA}</td>
+                    <td style={{ padding: 7, textAlign: 'center', borderRight: '1px solid #e3e6ea' }}>{g.FTM}</td>
+                    <td style={{ padding: 7, textAlign: 'center', borderRight: '1px solid #e3e6ea' }}>{g.STL}</td>
+                    <td style={{ padding: 7, textAlign: 'center', borderRight: '1px solid #e3e6ea' }}>{g.BLK}</td>
+                    <td style={{ padding: 7, textAlign: 'center', borderRight: '1px solid #e3e6ea' }}>{g.PF}</td>
+                    <td style={{ padding: 7, textAlign: 'center' }}>{g['PLUS_MINUS']}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

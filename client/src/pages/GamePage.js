@@ -67,14 +67,15 @@ export default function GamePage() {
       <div style={{ width: '100%', background: '#22223b', color: '#fff', padding: '18px 0 14px 0', marginBottom: 0, boxShadow: '0 2px 8px #22223b22', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
         <div style={{ fontWeight: 700, fontSize: 22, marginLeft: 36, letterSpacing: 1 }}>Game Details</div>
         <button onClick={() => navigate(-1)} style={{ marginRight: 36, background: '#4dabf7', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 18px', fontWeight: 600, fontSize: 16, cursor: 'pointer', boxShadow: '0 2px 8px #4dabf733', transition: 'all 0.15s' }}>Back</button>
-      </div>      <div style={{ maxWidth: 600, margin: '40px auto', background: '#fff', borderRadius: 16, boxShadow: '0 4px 24px rgba(0,0,0,0.08)', padding: 36, fontFamily: 'Inter, sans-serif' }}>
+      </div>
+      <div style={{ maxWidth: 600, margin: '40px auto', background: '#fff', borderRadius: 16, boxShadow: '0 4px 24px rgba(0,0,0,0.08)', padding: 36, fontFamily: 'Inter, sans-serif' }}>
         <h2 style={{ fontWeight: 700, fontSize: 26, marginBottom: 8 }}>{game.MATCHUP} ({game.WL})</h2>
         <div style={{ color: '#888', marginBottom: 18 }}>{formatDate(game.GAME_DATE)}</div>
         <div style={{ fontSize: 15, marginBottom: 8, maxHeight: 420, overflowY: 'auto' }}>
           {Object.entries(game).map(([key, value]) => (
             <div key={key} style={{ display: 'flex', gap: 8, borderBottom: '1px solid #f1f1f1', padding: '2px 0' }}>
               <span style={{ minWidth: 140, color: '#888', fontWeight: 500 }}>{key}:</span>
-              <span style={{ color: '#222' }}>{key === 'GAME_DATE' ? formatDate(value) : String(value)}</span>
+              <span style={{ color: '#222' }}>{String(value)}</span>
             </div>
           ))}
         </div>
